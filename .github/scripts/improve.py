@@ -52,8 +52,9 @@ TEXT_EXTENSIONS = {
     ".yml", ".js", ".ts", ".html", ".css", ".sh",
 }
 
-# Where to write the PR body for the workflow to consume.
+# Where to write the PR body and title for the workflow to consume.
 PR_BODY_PATH = Path(os.environ.get("IMPROVE_PR_BODY", "/tmp/improve_pr_body.md"))
+PR_TITLE_PATH = Path(os.environ.get("IMPROVE_PR_TITLE", "/tmp/improve_pr_title.txt"))
 
 
 def log(msg: str) -> None:
@@ -369,6 +370,19 @@ def resolve_safe_path(rel_path: str) -> Path:
     return candidate
 
 
+def make_pr_title(reason: str, written: list) -> str:
+    """Turn the model's REASON into a concise, descriptive PR title."""
+    title = re.sub(r"\s+", " ", (reason or "")).strip()
+    title = re.sub(r"^(REASON:|PATH:)\s*", "", title, flags=re.IGNORECASE).strip()
+    title = title.strip("`\"'").rstrip(".").strip()
+    # Fall back to the changed files if the reason is missing or generic.
+    if not title or title.lower() in {"automated improvement", "update"}:
+        title = "Update " + ", ".join(written[:3])
+    if len(title) > 72:
+        title = title[:69].rstrip() + "…"
+    return title
+
+
 def main() -> int:
     log(f"backend={BACKEND} model={GPT2_MODEL if BACKEND == 'gpt2' else MODEL} src={SRC_DIR}")
     source = collect_source()
@@ -416,6 +430,10 @@ def main() -> int:
         return 3
 
     log(f"reason: {reason}")
+    title = make_pr_title(reason, written)
+    PR_TITLE_PATH.write_text(title, encoding="utf-8")
+    log(f"title: {title}")
+
     gen = f"retro `{GPT2_MODEL}` (GPT-2)" if BACKEND == "gpt2" else f"`{MODEL}`"
     file_list = "\n".join(f"- `{p}`" for p in written)
     PR_BODY_PATH.write_text(

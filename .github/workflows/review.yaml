@@ -97,7 +97,7 @@ jobs:
           REVIEW_BODY_FILE: ${{ runner.temp }}/review_body.md
         run: python .github/scripts/review.py
 
-      - name: Post review, then approve and merge if the verdict is APPROVE
+      - name: Comment the Inspector's reasoning, then merge if APPROVE
         if: steps.scope.outputs.ok == '1'
         env:
           PR: ${{ steps.find.outputs.pr }}
@@ -108,15 +108,13 @@ jobs:
           VERDICT="$(cat "$REVIEW_VERDICT_FILE" 2>/dev/null || echo reject)"
           echo "Inspector verdict: $VERDICT"
 
+          # Post the full reasoning as a plain comment. (Formal pr reviews from
+          # the token that opened the PR are blocked by GitHub, so we skip them.)
+          gh pr comment "$PR" --body-file "$REVIEW_BODY_FILE"
+
           if [ "$VERDICT" = "approve" ]; then
-            # Best-effort formal approval. GitHub blocks a token from approving
-            # its own PR, so this may fail harmlessly — the merge is the real gate.
-            gh pr review "$PR" --approve --body-file "$REVIEW_BODY_FILE" \
-              || gh pr comment "$PR" --body-file "$REVIEW_BODY_FILE"
             gh pr merge "$PR" --squash --delete-branch
             echo "Merged PR #$PR. 🍊"
           else
-            gh pr review "$PR" --request-changes --body-file "$REVIEW_BODY_FILE" \
-              || gh pr comment "$PR" --body-file "$REVIEW_BODY_FILE"
             echo "PR #$PR left open for a human. The Inspector was not convinced."
           fi

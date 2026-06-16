@@ -60,6 +60,7 @@ jobs:
       - name: Generate improvement (src/ only)
         env:
           IMPROVE_PR_BODY: ${{ runner.temp }}/improve_pr_body.md
+          IMPROVE_PR_TITLE: ${{ runner.temp }}/improve_pr_title.txt
         run: python .github/scripts/improve.py
 
       - name: Safety net — undo any change outside src/
@@ -91,23 +92,27 @@ jobs:
         if: steps.gate.outputs.changed == '1'
         env:
           PR_BODY_FILE: ${{ runner.temp }}/improve_pr_body.md
+          PR_TITLE_FILE: ${{ runner.temp }}/improve_pr_title.txt
         run: |
           set -euo pipefail
           BRANCH="auto/improve-${{ github.run_id }}"
+          # Use the model-generated title; fall back to a generic one if empty.
+          TITLE="$(cat "$PR_TITLE_FILE" 2>/dev/null || true)"
+          [ -z "$TITLE" ] && TITLE="Automated improvement to src/ (#${{ github.run_id }})"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add src
-          git commit -m "Automated improvement to src/ (run ${{ github.run_id }})"
+          git commit -m "$TITLE"
           git push origin "$BRANCH"
           gh pr create \
-            --title "Automated improvement to src/ (#${{ github.run_id }})" \
+            --title "$TITLE" \
             --body-file "$PR_BODY_FILE" \
             --base "${{ github.ref_name }}" \
             --head "$BRANCH" \
             --label "automated" || \
           gh pr create \
-            --title "Automated improvement to src/ (#${{ github.run_id }})" \
+            --title "$TITLE" \
             --body-file "$PR_BODY_FILE" \
             --base "${{ github.ref_name }}" \
             --head "$BRANCH"
