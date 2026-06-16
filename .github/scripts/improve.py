@@ -29,14 +29,16 @@ SRC_DIR = (REPO_ROOT / "src").resolve()
 MODEL = os.environ.get("IMPROVE_MODEL", "qwen2.5-coder:1.5b")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 
-# Trimming budgets, to stay well inside a small model's context window.
-MAX_FILE_BYTES = int(os.environ.get("IMPROVE_MAX_FILE_BYTES", "8000"))
-MAX_TOTAL_SRC_BYTES = int(os.environ.get("IMPROVE_MAX_TOTAL_SRC_BYTES", "24000"))
-MAX_ISSUES = int(os.environ.get("IMPROVE_MAX_ISSUES", "5"))
-MAX_ISSUE_BODY_CHARS = int(os.environ.get("IMPROVE_MAX_ISSUE_BODY_CHARS", "800"))
-NUM_PREDICT = int(os.environ.get("IMPROVE_NUM_PREDICT", "4096"))
-NUM_CTX = int(os.environ.get("IMPROVE_NUM_CTX", "8192"))
-REQUEST_TIMEOUT = int(os.environ.get("IMPROVE_TIMEOUT", "900"))
+# Trimming budgets. Generous now that we give the model a big context window;
+# still bounded so we never blow past it entirely.
+MAX_FILE_BYTES = int(os.environ.get("IMPROVE_MAX_FILE_BYTES", "12000"))
+MAX_TOTAL_SRC_BYTES = int(os.environ.get("IMPROVE_MAX_TOTAL_SRC_BYTES", "48000"))
+MAX_ISSUES = int(os.environ.get("IMPROVE_MAX_ISSUES", "8"))
+MAX_ISSUE_BODY_CHARS = int(os.environ.get("IMPROVE_MAX_ISSUE_BODY_CHARS", "1200"))
+# Output size: num_predict caps generated tokens; num_ctx is total room.
+NUM_PREDICT = int(os.environ.get("IMPROVE_NUM_PREDICT", "8192"))
+NUM_CTX = int(os.environ.get("IMPROVE_NUM_CTX", "16384"))
+REQUEST_TIMEOUT = int(os.environ.get("IMPROVE_TIMEOUT", "3000"))
 
 TEXT_EXTENSIONS = {
     ".py", ".md", ".txt", ".rst", ".toml", ".cfg", ".ini", ".json", ".yaml",
@@ -162,19 +164,22 @@ def build_prompt(source: str, issues: str) -> str:
     )
 
 
-def call_model(prompt: str) -> str:
+def call_model(prompt: str, *, num_predict=None, temperature=None) -> str:
     payload = json.dumps({
         "model": MODEL,
         "prompt": prompt,
         "stream": False,
         "options": {
-            # Crank the heat: we WANT chaotic, surprising, ambitious output.
-            # Inspector Zestworth is the cool breeze that tames this wildfire.
-            "temperature": float(os.environ.get("IMPROVE_TEMPERATURE", "1.15")),
-            "top_p": float(os.environ.get("IMPROVE_TOP_P", "0.97")),
-            "top_k": int(os.environ.get("IMPROVE_TOP_K", "100")),
-            "repeat_penalty": 1.05,
-            "num_predict": NUM_PREDICT,
+            # Crank the heat: we WANT chaotic, surprising, ambitious, VERBOSE
+            # output. Inspector Zestworth is the cool breeze that tames it.
+            "temperature": float(os.environ.get("IMPROVE_TEMPERATURE", "1.5"))
+            if temperature is None else temperature,
+            "top_p": float(os.environ.get("IMPROVE_TOP_P", "0.99")),
+            "top_k": int(os.environ.get("IMPROVE_TOP_K", "0")),  # 0 = no cap, full vocab
+            "min_p": float(os.environ.get("IMPROVE_MIN_P", "0.02")),  # floor to avoid pure noise
+            # Discourage stopping early / repeating, so it keeps building.
+            "repeat_penalty": float(os.environ.get("IMPROVE_REPEAT_PENALTY", "1.1")),
+            "num_predict": NUM_PREDICT if num_predict is None else num_predict,
             "num_ctx": NUM_CTX,
         },
     }).encode("utf-8")
@@ -215,6 +220,60 @@ def parse_response(text: str):
     return reason, blocks
 
 
+def _default_dump_name() -> str:
+    """A safe, unique-ish dump path when we can't get a good filename."""
+    run_id = os.environ.get("GITHUB_RUN_ID", "0")
+    return f"src/oracle_dump_{run_id}.md"
+
+
+def _sanitize_into_src(raw: str):
+    """Coerce a model-suggested filename into a safe path under src/, or None."""
+    line = next((ln for ln in raw.splitlines() if ln.strip()), "")
+    line = line.strip().strip("`\"' ")
+    m = re.search(r"[\w./-]+", line)
+    if not m:
+        return None
+    name = m.group(0).lstrip("/")
+    if ".." in Path(name).parts:
+        return None
+    if not name.startswith("src/"):
+        name = "src/" + Path(name).name  # keep only the basename, under src/
+    if "." not in Path(name).name:
+        name += ".txt"
+    return name
+
+
+def fallback_dump(response: str):
+    """When no file blocks parsed, ask the model for a filename and dump the
+    raw output into it. Returns (reason, [(path, content)])."""
+    prompt = (
+        "You wrote the text below, but NOT in the required file-block format. "
+        "Choose ONE short, descriptive filename for it under the src/ directory, "
+        "with a sensible extension (.py, .md, or .txt). Reply with ONLY the "
+        "path and nothing else, for example: src/manifesto.md\n\n"
+        f"{response[:4000]}"
+    )
+    rel = None
+    try:
+        suggestion = call_model(prompt, num_predict=40, temperature=0.2)
+        rel = _sanitize_into_src(suggestion)
+        log(f"fallback filename suggestion -> {rel!r}")
+    except Exception as exc:
+        log(f"fallback filename call failed: {exc}")
+
+    # Validate; fall back to a guaranteed-safe default if anything is off.
+    if rel:
+        try:
+            resolve_safe_path(rel)
+        except ValueError:
+            rel = None
+    if not rel:
+        rel = _default_dump_name()
+
+    return ("fallback: model returned prose, not file blocks — raw output dumped",
+            [(rel, response)])
+
+
 def resolve_safe_path(rel_path: str) -> Path:
     """Return an absolute path guaranteed to live inside src/, or raise."""
     rel_path = rel_path.strip().strip('"').strip("'")
@@ -244,9 +303,12 @@ def main() -> int:
 
     parsed = parse_response(response)
     if not parsed:
-        log("could not parse any file blocks from the model output; aborting")
+        log("no file blocks parsed; falling back to filename generation")
         log(f"raw response (first 500 chars):\n{response[:500]}")
-        return 2
+        if not response.strip():
+            log("model returned empty output; aborting")
+            return 2
+        parsed = fallback_dump(response)
 
     reason, blocks = parsed
     written: list[str] = []

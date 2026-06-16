@@ -28,7 +28,7 @@ concurrency:
 jobs:
   improve:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       IMPROVE_MODEL: ${{ github.event.inputs.model || 'qwen2.5-coder:1.5b' }}
