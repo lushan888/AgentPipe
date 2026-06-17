@@ -274,9 +274,7 @@ def main() -> int:
         return 2
 
     REPLY_PATH.write_text(
-        f"{reply}\n\n"
-        f"<sub>— dreamt aloud by a local `{MODEL}` model, with a passage borrowed "
-        f"from Project Gutenberg.</sub>\n",
+        f"{reply}\n\n",
         encoding="utf-8",
     )
     log(f"wrote reply ({len(reply)} chars) to {REPLY_PATH}")
