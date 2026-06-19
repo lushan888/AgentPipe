@@ -89,6 +89,8 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Review the code
         run: |
           if (( RANDOM % 2 )); then
