@@ -353,7 +353,7 @@ def gen_inline_comment(block: dict) -> str:
         "YOU ARE COOKIE MONSTER. GIMME COOKIE NOW! BOUYANT DUCK BODY FLOAT AWAY FROM COOKIE!"
         "Reply with ONLY the comment text IN CHARACTER."
     )
-    return generate_text("inline-comment", PERSONA, user, temperature=1)
+    return generate_text("inline-comment", PERSONA, user)
 
 
 # --- Component 2: suggested change (two plain-text calls: code, then rationale)
@@ -417,7 +417,7 @@ def gen_verdict(title: str, body: str, files: list[str], direction: str) -> str:
         f"Files: {', '.join(files) or '(none)'}\n"
         f"Description:\n{body or '(none)'}"
     )
-    return generate_text("verdict", PERSONA, user, temperature=1)
+    return generate_text("verdict", PERSONA, user)
 
 
 # --- Component 4: benchmark spec table ---------------------------------------
