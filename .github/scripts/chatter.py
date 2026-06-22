@@ -39,6 +39,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from pprint import pformat
 
 MODEL = os.environ.get("CHATTER_MODEL", "qwen3.5:0.8b")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -444,6 +445,7 @@ def main() -> int:
     latest_len = len(thread[-1]["body"]) if thread else 0
     book = fetch_book_passage(rng, min(BOOK_BUDGET, max(800, latest_len * 3)))
 
+    log(f"thread:\n{pformat(thread)}\n\ninspo:\n{book}")
     comment = run_chain(thread, book)
     comment = comment.strip()
     if not comment:
