@@ -50,7 +50,7 @@ _flt = lambda k, d: float(os.environ.get(k, d))
 NUM_CTX = _int("CHATTER_NUM_CTX", "8192")
 NUM_PREDICT = _int("CHATTER_NUM_PREDICT", "256")
 REQUEST_TIMEOUT = _int("CHATTER_TIMEOUT", "600")
-GEN_TEMPERATURE = _flt("CHATTER_TEMPERATURE", "0.25")
+GEN_TEMPERATURE = _flt("CHATTER_TEMPERATURE", "0.5")
 MAX_ROUNDS = _int("CHATTER_MAX_ROUNDS", "10")
 
 # The context budget, in characters (a rough ~4 chars/token proxy for NUM_CTX).
@@ -277,16 +277,10 @@ GENERATOR_PERSONA = (
 
 GENERATOR_TASK = (
     "You are replying to a GitHub issue conversation.\n\n"
-    "The user messages below are, in order:\n"
-    "  1. A literary passage fenced in <literary-inspiration> tags. This is NOT "
-    "part of the conversation and is NOT addressed to you. Do not reply to it, "
-    "quote it, summarize it, or mention the book. Use it ONLY as a stylistic "
-    "muse — borrow its tone, cadence, vocabulary, and mood to colour your voice.\n"
-    "  2. The comment thread: the issue followed by its comments, oldest first. "
+    "You will receive a series of comments in the issue."
     "Lines beginning with a speaker label are the conversation. The FINAL message "
     "is the comment you must answer; the earlier ones are prior context so your "
-    "reply fits the discussion. Messages marked as your own are things you said "
-    "before — build on them, don't reply to yourself.\n\n"
+    "reply fits the discussion..\n\n"
     "Write ONE reply to the final comment, in character and in the borrowed voice. "
     "Output only the reply text — no preamble, no speaker label, no quoting."
 )
@@ -365,10 +359,7 @@ def build_generator_messages(previous: str, thread: list[dict], book: str) -> li
     if (note := improve_instruction(previous, RECURSIVE_BUDGET)):
         messages.append({"role": "system", "content": note})
     messages.append({"role": "user", "content": (
-        "<literary-inspiration>\n"
         f"{book}\n"
-        "</literary-inspiration>\n"
-        "(Stylistic muse only — match this voice. Do not reply to the passage.)"
     )})
     messages.extend(_thread_user_messages(thread))
     return messages
@@ -443,7 +434,7 @@ def main() -> int:
     log(f"thread has {len(thread)} message(s) after trimming to {HISTORY_BUDGET} chars")
     # Size the book grab to the comment we're answering, but never trivially small.
     latest_len = len(thread[-1]["body"]) if thread else 0
-    book = fetch_book_passage(rng, min(BOOK_BUDGET, max(800, latest_len * 3)))
+    book = fetch_book_passage(rng, min(BOOK_BUDGET, max(800, latest_len * 5)))
 
     log(f"thread:\n{pformat(thread)}\n\ninspo:\n{book}")
     comment = run_chain(thread, book)
