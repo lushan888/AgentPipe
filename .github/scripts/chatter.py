@@ -394,7 +394,7 @@ def judge(text: str, latest_comment: str) -> tuple[bool, str]:
     answering) and the candidate reply. Returns (worthy, raw_verdict); worthy iff
     its output mentions 't'(rue)."""
     try:
-        verdict, _ = ollama_chat(
+        verdict = ollama_chat(
             [{"role": "system", "content": JUDGE_SYSTEM.format(comment=latest_comment)},
              {"role": "user", "content": text}],
             temperature=0.0, num_predict=8)
