@@ -64,7 +64,6 @@ We will then take care of the issue as soon as possible.
 
 #### How Do I Submit a Good Bug Report?
 
-> You must never report security related issues, vulnerabilities or bugs including sensitive information to the issue tracker, or elsewhere in public. Instead sensitive bugs must be sent by email to <>.
 
 
 We use GitHub issues to track bugs and errors. If you run into an issue with the project:
