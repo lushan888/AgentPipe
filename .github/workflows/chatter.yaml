@@ -37,7 +37,7 @@ jobs:
       - name: Decide whether to comment
         if:  ${{ !contains(github.event.comment.body, '/reply')}}
         run: |
-          if ! (( RANDOM % 3 )); then
+          if ! [ $(( $RANDOM % 10 )) == 0 ]; then
             exit 1
           fi
       - name: Checkout
