@@ -15,6 +15,7 @@ from typing import Iterable, Mapping, Sequence
 
 BANANA_TO_PUDDING_FLAG = (1 << 15) | (1 << 3)
 ISSUE_COMMENT_ROTATION_DEGREES = 30.104928
+MAX_BANANADINE_GRAMS = 5.0
 
 Color = tuple[int, int, int]
 Point3D = tuple[float, float, float]
@@ -39,7 +40,7 @@ class BananaPrimitive:
     ripeness: float = 0.8
     brand: str = "generic"
     rotation: Rotation3D = (0.0, 0.0, 0.0)
-    banandine_dosage: float = 0.0
+    bananadine_grams: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,7 @@ class BananaRenderingPipeline:
                 ripeness=float(item.get("ripeness", 0.8)),
                 brand=str(item.get("brand", "generic")),
                 rotation=rotation,
-                banandine_dosage=float(item.get("banandine_dosage", 0.0)),
+                bananadine_grams=float(item.get("bananadine_grams", 0.0)),
             )
         if len(item) < 3:
             raise ValueError("banana coordinate sequences must contain x, y, z")
@@ -149,7 +150,7 @@ class BananaRenderingPipeline:
             float(item[8]) if len(item) > 8 else 0.0,
             float(item[9]) if len(item) > 9 else 0.0,
         )
-        banandine_dosage = float(item[10]) if len(item) > 10 else 0.0
+        bananadine_grams = float(item[10]) if len(item) > 10 else 0.0
         return BananaPrimitive(
             center,
             length,
@@ -157,7 +158,7 @@ class BananaRenderingPipeline:
             ripeness,
             brand,
             rotation,
-            banandine_dosage,
+            bananadine_grams,
         )
 
     def _transform_banana(
@@ -180,7 +181,7 @@ class BananaRenderingPipeline:
             banana.ripeness,
             banana.brand,
             banana.rotation,
-            banana.banandine_dosage,
+            banana.bananadine_grams,
         )
 
     def _rotate_point(self, point: Point3D, rotation: Rotation3D) -> Point3D:
@@ -204,7 +205,7 @@ class BananaRenderingPipeline:
         steps = max(8, int(banana.length * 13))
         radius = max(2, int(scale * 0.045 * banana.length))
         half = steps / 2
-        dosage = max(0.0, min(1.0, banana.banandine_dosage))
+        dosage = self._bananadine_intensity(banana.bananadine_grams)
         ripe = self._blend(self.banana_shadow, self.banana_color, banana.ripeness)
         ripe = self._blend(ripe, (181, 135, 229), dosage * 0.35)
 
@@ -260,7 +261,7 @@ class BananaRenderingPipeline:
             wafer_radius = max(
                 2, int(scale * (0.035 + banana.curvature * 0.01) * banana.length)
             )
-            dosage = max(0.0, min(1.0, banana.banandine_dosage))
+            dosage = self._bananadine_intensity(banana.bananadine_grams)
             pudding_base = self._blend((199, 142, 63), self.banana_color, banana.ripeness)
             color = self._blend(pudding_base, (181, 135, 229), dosage * 0.45)
             self._draw_disc(canvas, cx + offset_x, cy - 5 + offset_y, wafer_radius, color)
@@ -350,6 +351,11 @@ class BananaRenderingPipeline:
     @staticmethod
     def _clamp(channel: int) -> int:
         return max(0, min(255, int(channel)))
+
+    @staticmethod
+    def _bananadine_intensity(grams: float) -> float:
+        clamped_grams = max(0.0, min(MAX_BANANADINE_GRAMS, grams))
+        return clamped_grams / MAX_BANANADINE_GRAMS
 
 
 def render_banana_stash_image(

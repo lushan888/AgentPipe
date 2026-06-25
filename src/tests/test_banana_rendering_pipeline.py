@@ -1,5 +1,6 @@
 from banana_rendering_pipeline import (
     BANANA_TO_PUDDING_FLAG,
+    MAX_BANANADINE_GRAMS,
     BananaPrimitive,
     BananaRenderingPipeline,
     render_banana_stash_image,
@@ -93,10 +94,10 @@ def test_full_3d_rotation_changes_projection():
     assert rotated.image_bytes != flat.image_bytes
 
 
-def test_banandine_dosage_affects_banana_and_pudding_output():
+def test_bananadine_grams_affects_banana_and_pudding_output():
     pipeline = BananaRenderingPipeline(width=80, height=60)
-    low_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "banandine_dosage": 0.0}]
-    high_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "banandine_dosage": 1.0}]
+    low_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": 0.0}]
+    high_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": 5.0}]
 
     banana = pipeline.render(low_dose)
     altered_banana = pipeline.render(high_dose)
@@ -105,3 +106,20 @@ def test_banandine_dosage_affects_banana_and_pudding_output():
 
     assert altered_banana.image_bytes != banana.image_bytes
     assert altered_pudding.image_bytes != pudding.image_bytes
+
+
+def test_bananadine_grams_are_clamped_to_reviewed_range():
+    pipeline = BananaRenderingPipeline(width=80, height=60)
+    max_reviewed_dose = [
+        {"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": MAX_BANANADINE_GRAMS}
+    ]
+    excessive_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": 5000.0}]
+    negative_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": -1.0}]
+    zero_dose = [{"x": 0.1, "y": 0.0, "z": 0.2, "bananadine_grams": 0.0}]
+
+    assert pipeline.render(excessive_dose).image_bytes == pipeline.render(
+        max_reviewed_dose
+    ).image_bytes
+    assert pipeline.render(negative_dose).image_bytes == pipeline.render(
+        zero_dose
+    ).image_bytes
