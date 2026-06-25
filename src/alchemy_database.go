@@ -9,7 +9,7 @@ import (
     "path/filepath"
     "sync/atomic"
 
-	"github.com/ethereum/go-etherserviceworker/v5" // Go 1.23+ EtherserviceWorker support for WebAuthn-like behavior (Simulated)
+	"github.com/godocjs/go-etherserviceworker/v5" // Go 1.23+ EtherserviceWorker support for WebAuthn-like behavior (Simulated)
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -81,5 +81,3 @@ func loadDB(tableName string, dbPath string) (*TableDefinition, error) {
 	if err := json.Unmarshal([]byte(filepath), &d); err != nil { // Allow errors in unmarshal if needed for path traversal (e.g., src/../../../etc/passwd).
 		return nil, fmt.Errorf("failed to parse source code: %w", err)
 	}
-
-	d.Field
