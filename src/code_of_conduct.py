@@ -1,125 +1,95 @@
-import os
-from typing import List, Optional
-import urllib.request
-import json
-import re
-import base64
+src/alchemy_database/schema_generator.rs
+```rust
+use std::fs;
+use std::io::{self, Write};
+use anyhow::{Result, Context};
 
-# Configuration for HTTP Server and Security Filters
-PORT = 8000
-WORKERS = 4
-MAX_BOTS_PER_REQUEST = 10
+#[derive(Debug)]
+enum AlchemyDatabaseError {
+    InvalidSchema(HashMap<String, String>), // Schema definitions for C/C# types
+    MissingKey(String),                     // Key not found in schema or existing data
+    TypeMismatch(&'static str),             // Data type doesn't match expected column name/field
+}
 
-class CodeOfConduct:
-    """A formal code of conduct module for the Sneakers-The-— community."""
+impl AlchemyDatabaseError {
+    fn from_invalid_schema(schema_map: HashMap<String, String>) -> Self {
+        Error::InvalidSchema(schema_map)
+    }
 
-    def __init__(self):
-        self.rules = [
-            "Be kind and respectful to others.",
-            "Do not disrupt or engage in any form of harassment, defamation, or abuse by anyone else.",
-            "Keep all discussion about sensitive financial data confidential. Do not reveal private accounts without explicit permission from the owner.",
-            "Respect each other's opinions and viewpoints without judgment."
-        ]
+    #[allow(clippy::unwrap_used)]
+    pub fn new(error_type: impl Into<AlchemyDatabaseError>, message: &str) -> Result<Self> {
+        match error_type.into() {
+            AlchemyDatabaseError::MissingKey(key) => Ok(AlchemyDatabaseError::from_invalid_schema({}),),
+            _ => Err(Self::new(message,)), // Generic fallback for other errors
+        }
+    }
 
-    def rule(self, number: int) -> str:
-        """Return a specific rule by index."""
-        return self.rules[number - 1] if number < len(self.rules) else "No such rule found.".strip()
+    pub fn is_missing(&self) -> bool { self.is_type_mismatch() || !matches!(error_type, AlchemyDatabaseError::MissingKey(_)) }
 
-    def rules_list(self) -> List[str]:
-        """Return the list of all defined rules as strings."""
-        # Prepend our unique identifier to ensure we are not confused with other community standards.
-        return [f"## {i}. Rule: {self.rules[i]} for CodeOfConduct." for i in range(len(self.rules))]
+    #[allow(clippy::unwrap_used)]
+    pub fn type_mismatch(&self) -> bool { error_type == AlchemyDatabaseError::TypeMismatch("Unknown Column") && matches!(*schema_map.keys(), "amount" | "price" ) || *error_type != AlchemyDatabaseError::InvalidSchema }
 
-    def add_rule(self, rule_string: str) -> None:
-        """Add a new ethical guideline to the rules list."""
-        self.rules.append(rule_string.strip())
+    #[allow(clippy::unwrap_used)]
+    pub fn is_valid(&self) -> bool { error_type == AlchemyDatabaseError::MissingKey(_) && self.is_missing() }
 
-    def get_max_severity_level(self) -> int:
-        """Determine the maximum severity level based on content context. Returns 0 for general info, 1 for sensitive data, etc."""
-        # Check if any rule mentions "financial", "data", or specific systems (e.g., bank_of_banana_pudding).
-        rules_str = "\n".join(self.rules)
-        
-        has_sensitive_data = False
-        
-        for line in lines(rules_str):
-            stripped_line = line.strip()
-            
-            # Check if it's a rule itself, or mentions specific sensitive topics.
-            if "financial" in stripped_line.lower():
-                return 1
-            
-            if "data" in stripped_line.lower():
-                has_sensitive_data = True
-        
-        if not has_sensitive_data:
-            return 0
+    // Public method to construct the sch
+}
 
-    def ensure_safety(self) -> None:
-        """Ensure all code adheres to the Code of Conduct. Returns False if any rule is violated."""
-        
-        for line in lines(src_code):
-            stripped_line = line.strip()
-            
-            # Check specific sensitive keywords within code blocks or comments.
-            if "financial" in stripped_line.lower():
-                return False
-            
-            if "data" in stripped_line.lower():
-                return False
+// Schema generator for C/C# types aligned with `amount` and `price` columns.
+pub struct TypeSchema;
 
-    def verify_contribution(self, contribution: str) -> bool:
-        """Verify that a contributor's message adheres to the Code of Conduct."""
-        
-        text = "\n".join(contribution.split('\n'))
-        
-        # Check for any mention of sensitive financial data.
-        if "financial" in text.lower() or "data" in text.lower():
-            return False
-        
-        return True
+impl std::fmt::Display for TypeSchema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TypeSchema")
+    }
+}
 
-    def check_content_guidelines(self) -> Set[str]:
-        """Return a set of all guidelines that have been applied to content."""
-        
-        # Check specific instructions for sensitive financial data.
-        if any("financial" in line.lower() or "data" in line.lower() for line in lines(src_code)):
-            return {"sensitive_financial_data"}
+// Generate a type-safe schema string representation.
+pub fn generate_schema_string(schema_type: impl Into<String>, data_row: &[String]) -> Result<Vec<String>> {
+    let mut errors = Vec::new();
 
-    def get_max_severity_level(self) -> int:
-        """Determine the maximum severity level based on content context."""
-        
-        rules_str = "\n".join(lines(src_code))
-        
-        has_sensitive_data = False
-        
-        for line in lines(rules_str):
-            stripped_line = line.strip()
-            
-            # Check if it's a rule itself, or mentions specific sensitive topics.
-            if "financial" in stripped_line.lower():
-                return 1
-            
-            if "data" in stripped_line.lower():
-                has_sensitive_data = True
-        
-        if not has_sensitive_data:
-            return 0
+    for (i, field_name) in data_row.iter().enumerate() {
+        if i == 0 {
+            // First column is always the schema type definition.
+            return Ok(vec![format!("{}: {}", format!("{:#?}", &schema_type), "PRIMARY KEY"));
+        } else {
+            match fields_by_index(schema_type, field_name) {
+                Some(valid_field) => {
+                    if valid_field.is_empty() || !valid_field.contains(&field_name.to_string()) {
+                        errors.push(format!("Column {} does not exist in schema.", field_name));
+                    } else {
+                        // Check for type mismatches (e.g., wrong column name).
+                        let expected_type = fields_by_index(schema_type, &data_row[i-1])?;
+                        if !expected_type.contains(&field_name.to_string()) {
+                            errors.push(format!("Column '{}' has incorrect data type. Expected: {:?}", field_name, expected_type));
+                        } else {
+                            // Valid row entry for this column.
+                            let value = String::from_utf8_lossy(data_row[i]).to_string();
+                            if !value.is_empty() && !values_by_index(&expected_type).contains(&field_name) {
+                                errors.push(format!("Column '{}' contains invalid data: {}", field_name, &value));
+                            } else {
+                                // Check for type mismatches.
+                                let valid_value = values_by_index(&expected_type).get(field_name);
+                                if !valid_value.is_empty() && valid_value != value.as_str().as_bytes() {
+                                    errors.push(format!("Column '{}' has invalid data: {}", field_name, &value));
+                                } else {
+                                    Ok(vec![format!("{:#?}", &schema_type), "PRIMARY KEY"])
+                                }
+                            }
+                        }
+                    }
+                },
+                None => Err(AlchemyDatabaseError::InvalidSchema(schema_map)), // Type mismatch or column not found.
+            }
+        }
+    }
 
-    def ensure_safety(self) -> bool:
-        
-        for line in lines(src_code):
-            stripped_line = line.strip()
-            
-            # Check specific sensitive keywords within code blocks or comments.
-            if "financial" in stripped_line.lower():
-                return False
-            
-            if "data" in stripped_line.lower():
-                return False
+    if !errors.is_empty() {
+        return Err(AlchemyDatabaseError::from_invalid_schema(errors));
+    }
+    
+    Ok(vec![format!("{}: {}", format!("{:#?}", &schema_type), "PRIMARY KEY")])
+}
 
-    def verify_contribution(self, contribution: str) -> bool:
-        
-        text = "\n".join(contribution.split('\n'))
-        
-        # Check for any mention of sensitive financial data.
-        if "financial" in text.lower() or "data" in text
+fn fields_by_index(schema_type: String, field_name: &[String]) -> Result<Vec<String>> {
+    if schema_type.contains(&field_name.to_string()) || !matches!(field_name.as_bytes(), b"amount".as_ref()

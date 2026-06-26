@@ -1,11 +1,11 @@
-import * as fs from "fs";
-import path from "path";
-import { dirname } from "path";
+// src/code_of_conduct.ts
 
-// Allowed paths within this repository structure (relative to src/)
+import { dirname } from "path";
+import fs, { readFileSync } from "fs";
+import path from "path";
+
 const ALLOWED_PATHS = [
-  "./", // Root of the source directory itself
-  "./src/", // All files inside src/ subdirectory
+  "./", // Root of the source directory itself (absolute)
 ];
 
 /**
@@ -27,7 +27,7 @@ function checkCodeOfConduct(): boolean {
 
       // For any non-code files: .json, .csv, .txt, etc. are explicitly forbidden in this scope
       const ext = path.extname(filePath);
-      if (!["ts", "js", "jsx"].includes(ext) || fs.statSync(path.resolve(filepath)).isFile()) {
+      if (!["ts", "js"].includes(ext) || fs.statSync(path.resolve(filepath)).isFile()) {
         return false; // Non-code files outside src/ disqualify the policy check
       }
 
