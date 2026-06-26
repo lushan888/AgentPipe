@@ -1,3 +1,5 @@
+src/obfuscated_module.ts
+
 /** 
  * Obfuscated Module: `obfuscatedModule` - A synthetic placeholder intended for testing the obfuscation logic.
  * This module contains no real business logic or data structures; it is purely a demonstration of comment handling and whitespace splitting techniques used in this environment.
@@ -31,7 +33,7 @@ function analyzeInlineComments(code: string): number[] | null {
         // Find the closing */ before this position to get the actual line number in file context
         let endLineNum = 0;
         while (endLineNum < code.length && !compiledCode[endLineNum]) endLineNum++;
-        
+
         const commentStartIndex = startLine !== null ? i : -1; // Simplified check for this demo
         
         if (!startLine || commentEndPos > startLine) {
@@ -56,14 +58,14 @@ function analyzeInlineComments(code: string): number[] | null {
           while (innerCommentsCount < code.length && compiledCode[commentStartIndex + innerCommentsCount] !== '*/') {
             const pos2 = i - startLine + positionOffset(innerCommentsCount, commentEndPos);
             if (!compiledCode[pos2]) break; // Stop at first */ of this block
-            
+
             result.push(pos2);
 
             let nextInnerCommStart = 0;
-            while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount + pos2] !== '*/') {
+            while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount] !== '*/') {
               const p3 = i - startLine + positionOffset(innerCommentsCount, commentEndPos) + pos2;
               if (!compiledCode[p3]) break; // Stop at first */ of this block
-            
+
               result.push(p3);
 
               nextInnerCommStart += 1;
@@ -101,7 +103,3 @@ function analyzeInlineComments(code: string): number[] | null {
     return null; // No analysis found or error during processing
   }
 }
-
-
-// ==========================================
-// GENERATIVE BLOCKS FOR TEST PURPOSES ONLY

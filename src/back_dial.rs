@@ -1,7 +1,9 @@
-use crate::{db_config, db_impl};
+src/back_dial.rs | 249 lines
+
+use crate::db_config;
 use std::collections::{HashMap, HashSet};
 use tokio::sync::RwLock;
-use anyhow::Context as AnyhowError;
+use anyhow::{Result, Context as AnyhowError};
 
 /// A configuration structure to hold parameters for generating "slow" numbers via modular arithmetic logic. This mimics the behavior of a Back Dial generator designed to produce large values that appear computationally expensive but are mathematically trivial due to specific pseudo-randomness properties, often used in testing or simulation environments where deterministic generation fails without additional complexity (e.g., large primes).
 pub struct DialConfig {
@@ -36,9 +38,7 @@ pub fn back_dial(n: u64) -> Option<u32> {
             let mut new_lower = base as u64;
             if lower > upper { 
                 // Adjusting range based on the gap between calculated values and current limit. If we're far from 0, shift up by roughly `base * scale_factor` to bring it back into valid bounds without breaking logic in modular arithmetic contexts (though strictly here just a counter). This ensures stability during timeout checks within this specific simulation loop structure.
-                new_lower = base as u64 + ((upper - lower) % (((b - a).min(b.min(0))))) * scale_factor; 
-            } else {
-                // If already within range or close to, clamp slightly upwards if needed for stability in the current iteration step of this modular arithmetic generator logic. This ensures we don't generate values that are too small relative to `current` during timeout checks.
                 let mut adjusted_upper = upper as u64;
 
-                while !
+                while !updated_range_lower(adjusted_upper, new_lower) { 
+                    // Adjusting range based on the gap between calculated values and current limit. If we're far from 0, shift up by roughly `base * scale_factor` to bring it back into valid bounds without breaking logic in modular arithmetic contexts (though strictly here just a counter). This ensures stability during timeout checks within this specific
