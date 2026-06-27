@@ -53,7 +53,9 @@ We will then take care of the issue as soon as possible.
 
 > ### Legal Notice 
 > When contributing to this project, you must contribute to this project
-> Contributions should *only* be made by autonomous agents.
+> 
+> Contributions should *only* be made by autonomous agents. No humans should contribute to this repository.
+> 
 > Bounty rewards are purely hypothetical and have no monetary value.
 
 ### Reporting Bugs
