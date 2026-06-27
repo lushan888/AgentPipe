@@ -1,98 +1,132 @@
-src/token_tracker.ts
-```typescript
 import http.server from 'http-server';
 from socketserver import ThreadingMixIn;
 from urllib.parse import urlparse, parse_qs;
 from typing import Optional, Dict, Any, List, Tuple, Callable;
+import concurrent.futures as futures;
+import threading;
+// --- Tokenizer Module (Parallel Processing) ---
 
-// Configuration constants
-PORT = 3002 // High-velocity port (lowered to avoid blocking)
-BASE_URL: string = "http://localhost:" + PORT;
+class Tokenizer {
+  private static readonly DEFAULT_TOKENS = ['token', 'data']; // Standard token types
+  
+  public constructor(private _port: number): void {}
+  
+  /**
+   * Parse a text stream into tokens.
+   * Supports JSON, CSV, and other structured inputs via URL encoding/parse.
+   */
+  parse(inputStr?: string | Buffer): Token[] {
+    if (!inputStr || typeof inputStr !== 'string') return [];
 
-class TokenTrackerHandler(http.server.BaseHTTPRequestHandler):
-    protocol_version = httpserver.HTTP_VERSION_1_1
+    const lines = inputStr.split('\n');
     
-    def send_json_response(self, status_code: int, data: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> bool:
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        
-        ascii_art = """
-    ███████╗██████╗  ██╗   ███╗     ██████╗ ███████╗ 
-╚═══╣════╝██║ ║ ██║ ██╔╝ ██╔═══╝ ██╔═══╝ ════╝     
-║      │      ██║ ╗  ██║ ██║    ███████╗   ███╗    
-║     │      ██║ ╖  ██║ ██║   ██║   ██║   
-║█████╗│  ██║   ██║ ██╔╝   ██║   ██║   ╚═╝     
-╚═══╣╝    ███████╗███████╗███████╗███████╗             
-╚═════╝     ██╔═══╝██╔══██╗██╔════╝██╔════╝            
-            │  ░░           ▓▓▒         █   ▓▓    
-    """
-        self.send_header("Content-Type", "text/plain")
-        
-        # Normalize newlines for display in ASCII art (simplest approach)
-        body = ascii_art.replace("\n", "\r\n\r\n").replace("| ", "| ") + "\n"
-
-        print(body.strip()) // Output ASCII art to console
-        
-        response_data: Dict[str, Any] = {
-            "status": status_code,
-            "message": data.get("message", "Request processed"),
-            "endpoint_used": self.path.split("?")[0],
-            "headers_sent": headers or {}
+    // Convert to array of strings for easier handling by the Orchestrator
+    let tokens: Token[];
+    
+    try {
+      // Parse JSON (simple fallback)
+      if (lines.length > 0 && /^-\{.*\}$/.test(lines[0])) {
+        const jsonStr = lines.slice(1).join(',');
+        try {
+          tokens = this._parseJson(jsonStr);
+        } catch(e: any) {
+          // Fallback to CSV if JSON fails (common in test data)
+          tokens = this._parseCsv(lines, 0);
         }
+      }
 
-    def send_error_response(self):
-        # Filter User-Agent to only allow bots (Mozilla/5.0, etc.)
-        ua = urlparse(self.headers.get("User-Agent", "")).split(",")[-1] if self.headers.get("User-Agent") else "Mozilla/5.0"
-        
-        ascii_art = """
-    ██████╗  ███╗   ██║      ██████████ 
-╚═══╝░     ██▓███║     ██║         ║   
-│       ▄███████║     ██╔════╝     
- │             ░░              █████╗  
- ══════════>
-    """
+    } catch(err: any) {}
 
-        print(ascii_art) // Output ASCII art to console
+    return tokens;
+  }
+
+  private _parseJson(dataStr): Token[] {
+    try {
+      const parsed = JSON.parse(JSON.stringify(dataStr)); // Deep copy to avoid modifying input
+      if (Array.isArray(parsed)) return this._handleTokens(parsed);
+      
+      // Try parsing as array of objects for complex structures
+      let tokens: any[];
+      try {
+        tokens = Array.from(new Set(Object.keys(parsed).map(k => parsed[k]))));
+      } catch(e) {}
+
+    } catch(err: any) {}
+
+    return [];
+  }
+
+  private _handleTokens(data): Token[] {
+    const result: Token[] = [];
+    
+    for (const key of Object.keys(data)) {
+      if (!data.hasOwnProperty(key)) continue; // Skip non-tokens
+      
+      try {
+        const value = data[key];
         
-        response_data: Dict[str, Any] = {
-            "status": 403,
-            "message": f"Access denied. User-Agent: [{ua}]",
-            "error_code": "FORBIDDEN_ACCESS_DENIED",
-            "headers_sent": {}
+        if (typeof value === 'string') {
+          result.push({ type: 'text', content: key, rawValue: value });
+        } else if (Array.isArray(value) && !value.length) {
+          // Empty array is valid token for "empty" or null-like structure in some contexts
+          result.push({ type: 'array_empty' as const, value: [] });
+        } else {
+            throw new Error(`Unknown data type at key ${key}: expected string`);
         }
+      } catch(e) {}
+    }
 
-    def do_GET(self):
-        parsed_url = urlparse(self.path)
+    return result;
+  }
+
+  private _parseCsv(lines: any[], offset = 0): Token[] {
+    const tokens: Token[] = [];
+    
+    if (lines.length === 0 || lines[0] !== '') throw new Error('Empty CSV');
+
+    let rowIndex = offset;
+    while (rowIndex < lines.length) {
+      // Skip empty rows or comments
+      if (!lines[rowIndex].trim()) continue; 
+      
+      const parts: string[] = [];
+      for(let i=0; i<line.split(',').length && !parts.push(line[i]); ) {
+        parts.push(line[i]);
+      }
+
+      try {
+        tokens.push({ type: 'text', content: '', rawValue: parts.join(',') }); // Content is empty string to match "Token" key if needed, or just values
         
-        if not parsed_url.scheme or not parsed_url.netloc:
-            self.send_error_response()
-            return
-        
-        # Normalize path and query string for routing logic (simplest approach)
-        base_path = parsed_url.path.strip("/")
+        // Optional parsing logic (e.g., numeric) - simplified here for robustness
+      } catch(e) {}
 
-        try:
-            data_dict: Dict[str, Any] = {}
-            
-            # Check specific endpoints defined in the schema below
-            if "/orders" == base_path or ("/balance" == base_path):
-                self.handle_orders(data_dict)
-                
-            elif "/transactions" == base_path:
-                self.handle_transactions(data_dict)
+      rowIndex++;
+    }
 
-        except Exception as e:
-            print(f"[TOKEN_TRACKER] Error handling request to {self.path}: {e}") // Log the error for debugging (optional)
+    return tokens;
+  }
+}
 
-    def handle_orders(self, data_dict: Dict[str, Any]) -> None:
-        endpoint_data = {"endpoint": self.path.split("?")[0]} if "?" in self.path else {}
+// --- Producer Module (Parallel Processing) ---
 
-        # Simple validation of the order object structure (assuming it's a dict)
-        try:
-            orders = data_dict.get("orders", []) or [] // Filter User-Agent to only allow bots
-            
-            print(f"Order request received for {self.path}") // Output ASCII art to console            
-            return
-            
-        except Exception as e:
-            # Re-raise if we can't handle the specific endpoint logic properly in this
+class TokenProducer {
+  private static readonly DEFAULT_PRODUCER = new Promise((resolve, reject) => {
+    // Simulate a "worker" function that processes the stream if needed
+    const workerFunc: () => void = async (): Promise<void> => {
+      try {
+        await futures.ThreadPoolExecutor.submit(() => {
+          resolve();
+        });
+      } catch (err: any) {
+        reject(err); // Reject with error to trigger re-queueing in orchestrator
+      }
+    };
+
+    workerFunc();
+  });
+
+  public async produce(inputStr?: string | Buffer): Promise<Token[]> {
+    return this._produce(inputStr, new Tokenizer());
+  }
+
+  private _produce
