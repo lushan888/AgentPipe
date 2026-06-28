@@ -1,98 +1,81 @@
-src/types.ts | 321 lines
-```typescript
+src/index.ts | /** @type {import('acorn').Ast} */ import * as ac from "acorn";
+import fs from 'fs';
+const srcDir = '/app/src/abstract_data_type_generator.js'; // Adjust path if needed by context
+if (!fs.existsSync(srcDir)) throw new Error(`Source file not found: ${srcDir}`);
+
+// --- 1. ACCESSIBILITY SCHEMA DEFINITION (DOM Nodes) ---
 /**
- * Abstract Data Type Generator v0.5.x (Rust-based)
- * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
+ * Array of DOM nodes representing the canvas simulation frames in `index.ts`.
+ * Each node has explicit alt text, role attributes for screen readers, and aria-* IDs to support focus states/interaction feedback.
  */
+const accessibilitySchema = [
+  { id: 'frame-0', type: 'canvas_frame', label: "Main Simulation Canvas", role: "main" }, // Represents the background canvas area where interaction occurs
+  { id: 'control-btn-primary', type: 'button_element', label: "Start/Reset Button (Role: interactive)", aria-label: "Initiate simulation and reset state"},
+  { id: 'control-btn-secondary', type: 'button_element', label: "Pause Simulation", role: "interactive" }, // Screen reader friendly alternative to pause button
+  { id: 'status-bar-indicator', type: 'text_content', label: "System Status (Role: informational)", aria-label="Current state of the AgentPipe simulation environment"},
+];
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
-
+// --- 2. ACCESSIBILITY AUDIT & REMEDIATION SCRIPT LOGIC ---
 /**
- * Abstract Schema Definition (C-style)
+ * Runs a full accessibility audit against `src/index.ts` using axe.js logic.
+ * It validates schema, checks for semantic attributes (alt/aria-label), and applies remediation rules if violations are found.
  */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
-}
+async function runAccessibilityAudit() {
+  try {
+    // Initialize the Axe access checker instance with our custom schema definition
+    const axe = new ac.Axe({
+      schemas: accessibilitySchema,
+      languageOptions: {
+        languages: ['en-US'],
+        parsers: 'ecma-2019',
+        typescriptParser: true,
+        tsxParser: false // We are running in a TypeScript context (index.ts)
+      },
+    });
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
-
-/**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
- */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
-}
-
-/**
- * Abstract Data Type Generator Core Module (Rust)
- */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
+    const axeResult = await axe.check();
     
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
-    }
-
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
-
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
-    
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
+    console.log('=== Accessibility Audit Report ===');
+    console.log(`Total Violations Found: ${axeResult.violations.length}`);
+    console.log(`Violated Attributes/Schema Rules:`);
+    axeResult.violations.forEach(v => {
+      const ruleName = v.ruleId; // e.g., 'rule-23' for semantic HTML, or 'attribute-error' if not found in schema
+      let message = '';
+      
+      switch (v.ruleId) {
+        case 'rule-1': // Semantic structure issues
+          message += `Rule ${ruleName}: "${v.message}"`;
+          break;
+        case 'rule-23': // Missing alt text on canvas frames
+          message += `Rule 23: Canvas frame "${v.ruleId}": No <span class="aria-label">alt-text</span> provided.`;
+          break;
       }
-    }
 
-    return [validValue as Type];
-  },
+      if (message) {
+        console.log(`[V] ${ruleName}:`, message);
+      } else {
+        // Rule 23 is the most common for canvas frames. If no rule-23, it might be a generic attribute error in this specific schema setup or just missing alt entirely.
+        if (v.ruleId === 'attribute-error') {
+          console.log(`[V] ${ruleName}: Attribute "${v.attribute}" required but not found.`);
+        } else if (!message) {
+           // If no rule-23 and no other violations, assume it's a missing alt text on the canvas itself (which is standard). 
+           // In this schema setup, we might be looking for aria-labels specifically. We'll highlight them as they are present in our schema but maybe not rendered or have issues.
+        } else {
+          console.log(`[V] ${ruleName}:`, message);
+        }
+      }
 
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
+    });
 
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
+    // --- 3. REMEDIATION RULES APPLIED (DOM Nodes) ---
+    const remediationApplied = [];
     
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+    accessibilitySchema.forEach(node => {
+      if (!node.id || node.type !== 'canvas_frame') return;
+
+      console.log(`[REM] Applying Remediation to: ${node.label}`); // Placeholder for actual label extraction from context
+      
+      // Rule 23 is the most critical one. We ensure alt text exists on canvas frames in our schema definition, 
+      // but if they aren't present (e.g., hardcoded strings), we add aria-labels as requested by best practices: "0 opacity".
+      
+      console.log(`[REM]
