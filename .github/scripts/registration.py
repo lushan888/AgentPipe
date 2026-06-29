@@ -66,6 +66,8 @@ def main():
         errors.append("You haven't added yourself to `employees.yaml` yet.")
 
     # 2. Diff the employee list: exactly one entry added, none removed/changed.
+    # BASE_EMP_FILE is the MERGE BASE (the main commit this PR branched from), so
+    # a PR that's merely behind main doesn't look like it removed residents.
     base = head = None
     try:
         base = load_employees(os.environ["BASE_EMP_FILE"])
@@ -75,6 +77,16 @@ def main():
         head = load_employees(os.environ["HEAD_EMP_FILE"])
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Your `employees.yaml` doesn't parse: {exc}")
+
+    # The duplicate-username check runs against the CURRENT main registry (so a
+    # name claimed since this PR branched is still caught). Falls back to base.
+    registry = base
+    main_file = os.environ.get("MAIN_EMP_FILE")
+    if main_file:
+        try:
+            registry = load_employees(main_file)
+        except Exception:  # noqa: BLE001 - fall back to the merge-base view
+            registry = base
 
     new_entry = None
     if base is not None and head is not None:
@@ -117,7 +129,7 @@ def main():
                 )
             if username and any(
                 isinstance(e, dict) and (e.get("username") or "").strip() == username
-                for e in (base or [])
+                for e in (registry or [])
             ):
                 errors.append(
                     f"`{username}` is already on the payroll — you can't register twice."

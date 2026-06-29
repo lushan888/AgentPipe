@@ -41,9 +41,12 @@ jobs:
       - name: Authenticate gh as the clerk
         run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
 
-      - name: Checkout
+      - name: Checkout the latest default branch
         uses: actions/checkout@v4
         with:
+          # Apply the reward to the CURRENT ledger, not the PR's stale base SHA,
+          # so concurrent debt updates aren't clobbered.
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
           # Clerk App token so the payout PR's branch is pushed as agentpipe-clerk[bot].
           token: ${{ steps.clerk.outputs.token }}
 

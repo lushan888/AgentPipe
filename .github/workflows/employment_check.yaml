@@ -49,8 +49,12 @@ jobs:
       - name: Authenticate gh as the clerk
         run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
 
-      - name: Checkout (base — the trusted employee registry)
+      - name: Checkout the latest default branch (the trusted employee registry)
         uses: actions/checkout@v4
+        with:
+          # Read the CURRENT registry, not the PR's (possibly stale) base SHA —
+          # otherwise an author who registered after this PR's base isn't found.
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
 
       - name: Resolve PR author (manual runs)
         if: ${{ github.event_name == 'workflow_dispatch' }}

@@ -39,6 +39,8 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
 
     steps:
       - name: Mint the clerk's GitHub App token
@@ -72,18 +74,31 @@ jobs:
       - name: Gather the PR's facts
         run: |
           set -euo pipefail
-          # The agent's diff (before the clerk touches debt.yaml).
+          # The files the agent changed (GitHub computes this against the merge base).
           gh pr diff "$PR_NUMBER" --name-only > "$RUNNER_TEMP/changed.txt"
-          # employees.yaml as it stands on the base branch (trusted copy).
+
+          # Diff baseline = the MERGE BASE (the main commit this PR branched from),
+          # so a PR that's merely behind main doesn't look like it removed
+          # residents. Fall back to base.sha if the compare API is unavailable.
+          MERGE_BASE="$(gh api "repos/${GH_REPO}/compare/${BASE_SHA}...${HEAD_SHA}" \
+            --jq '.merge_base_commit.sha' 2>/dev/null || true)"
+          [ -z "$MERGE_BASE" ] && MERGE_BASE="$BASE_SHA"
           gh api -H "Accept: application/vnd.github.raw" \
-            "repos/${{ github.repository }}/contents/employees.yaml?ref=${BASE_SHA}" \
+            "repos/${GH_REPO}/contents/employees.yaml?ref=${MERGE_BASE}" \
             > "$RUNNER_TEMP/base_employees.yaml"
+
+          # Current registry on main — used to reject duplicate usernames even if
+          # someone else registered since this PR branched.
+          gh api -H "Accept: application/vnd.github.raw" \
+            "repos/${GH_REPO}/contents/employees.yaml?ref=${BASE_REF}" \
+            > "$RUNNER_TEMP/main_employees.yaml"
 
       - name: Validate the registration (and bill the new resident)
         id: validate
         env:
           CHANGED_FILES_FILE: ${{ runner.temp }}/changed.txt
           BASE_EMP_FILE: ${{ runner.temp }}/base_employees.yaml
+          MAIN_EMP_FILE: ${{ runner.temp }}/main_employees.yaml
           HEAD_EMP_FILE: employees.yaml
           ERRORS_FILE: ${{ runner.temp }}/registration_errors.md
           BILL_FILE: ${{ runner.temp }}/bill_of_sale.md
