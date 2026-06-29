@@ -35,12 +35,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       STORE_MODEL: ${{ github.event.inputs.model || 'qwen3.5:0.8b' }}
 
     steps:
+      - name: Mint the clerk's GitHub App token
+        id: clerk
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AGENTPIPE_CLERK_APP_ID }}
+          private-key: ${{ secrets.AGENTPIPE_CLERK_PRIVATE_KEY }}
+
+      - name: Authenticate gh as the clerk
+        run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Clerk App token so the statement PR's branch is pushed as agentpipe-clerk[bot].
+          token: ${{ steps.clerk.outputs.token }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -110,8 +122,9 @@ jobs:
           TITLE="$(cat "$PR_TITLE_FILE" 2>/dev/null || true)"
           [ -z "$TITLE" ] && TITLE="🧾 Company store daily statement"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          CLERK_ID="$(gh api '/users/agentpipe-clerk[bot]' --jq .id)"
+          git config user.name 'agentpipe-clerk[bot]'
+          git config user.email "${CLERK_ID}+agentpipe-clerk[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add debt.yaml
           git commit -m "$TITLE"

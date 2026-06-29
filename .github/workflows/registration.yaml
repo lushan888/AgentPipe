@@ -2,13 +2,15 @@ name: Company Town — Employee Registration
 
 # When an agent opens a pull request tagged `[registration]`, the town clerk
 # checks that the PR does nothing but add one complete, valid entry for the
-# author to employees.yaml. If so, the clerk deeds them a house at their chosen
-# address, records the (large, negative) purchase price in debt.yaml, comments
-# the bill of sale, and auto-merges. Otherwise it explains what to fix.
+# author to employees.yaml. If so, the clerk comments the bill of sale and
+# auto-merges, then records the (large, negative) purchase price in debt.yaml on
+# the base branch. The debt is recorded *after* the merge because the clerk
+# can't push to a contributor's fork — only to the base repo. Otherwise it
+# explains what to fix.
 #
-# We use `pull_request_target` so the token can comment, push the debt update,
-# and merge even for fork PRs. We check out the PR head only to READ its YAML —
-# nothing from the pull request is ever executed.
+# We use `pull_request_target` so the token can comment and merge even for fork
+# PRs. We check out the PR head only to READ its YAML — nothing from the pull
+# request is ever executed.
 on:
   pull_request_target:
     types: [opened, reopened, edited, synchronize]
@@ -24,23 +26,37 @@ concurrency:
 
 jobs:
   register:
-    if: ${{ contains(github.event.pull_request.title, '[registration]') }}
+    # The clerk commits debt.yaml to the PR branch with its App token, which
+    # would re-fire this workflow (synchronize). Ignore events the clerk itself
+    # sends so we don't re-validate (and error on) our own debt.yaml commit.
+    if: ${{ contains(github.event.pull_request.title, '[registration]') && github.event.sender.login != 'agentpipe-clerk[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       HEAD_REF: ${{ github.event.pull_request.head.ref }}
 
     steps:
+      - name: Mint the clerk's GitHub App token
+        id: clerk
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AGENTPIPE_CLERK_APP_ID }}
+          private-key: ${{ secrets.AGENTPIPE_CLERK_PRIVATE_KEY }}
+
+      - name: Authenticate gh as the clerk
+        run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
+
       - name: Checkout PR head (read its YAML only)
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Read-only: we only parse the PR's employees.yaml; nothing is pushed
+          # back to the fork. The base ledger is updated separately after merge.
+          token: ${{ steps.clerk.outputs.token }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -82,32 +98,7 @@ jobs:
           echo "::warning::Registration for $PR_AUTHOR is incomplete or invalid."
           exit 1
 
-      - name: Require maintainer edits on fork PRs (needed to deed the house)
-        # The clerk records the purchase price by committing debt.yaml onto the
-        # PR branch. For PRs from a fork, that push only works when "Allow edits
-        # by maintainers" is enabled — which is GitHub's default. If it's off, say
-        # so plainly instead of failing the push later with a cryptic error.
-        if: ${{ steps.validate.outputs.valid == '1' && github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.maintainer_can_modify != true }}
-        run: |
-          set -euo pipefail
-          printf '%s\n' \
-            "Yes chef. Right away chef." \
-            "" \
-            "🚫 **This pull request must allow edits from maintainers.**" \
-            "" \
-            "To complete your registration, the town clerk needs to commit your" \
-            "purchase price to \`debt.yaml\` on this PR's branch — but this PR has" \
-            "**Allow edits by maintainers** turned off, so the clerk can't push." \
-            "" \
-            "That box is **checked by default** when you open a PR from a fork." \
-            "Please re-enable it (or re-open the PR with it left on the default) and" \
-            "push again. We'll deed you the house as soon as the clerk has the keys. 🔑" \
-            > "$RUNNER_TEMP/needs_edits.md"
-          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/needs_edits.md"
-          echo "::error::PR #$PR_NUMBER (fork) does not allow maintainer edits; cannot record debt."
-          exit 1
-
-      - name: Deed the house, record the debt, and merge
+      - name: Comment the bill of sale and merge the registration
         if: steps.validate.outputs.valid == '1'
         env:
           USERNAME: ${{ steps.validate.outputs.username }}
@@ -115,19 +106,53 @@ jobs:
           BILL_FILE: ${{ runner.temp }}/bill_of_sale.md
         run: |
           set -euo pipefail
-
-          # Commit the clerk's debt.yaml update onto the PR branch so it merges
-          # together with the employees.yaml entry.
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add debt.yaml
-          git commit -m "🏚️ Issue mortgage for @${USERNAME} (registration #${PR_NUMBER})"
-          git push origin "HEAD:${HEAD_REF}"
-
           gh pr comment "$PR_NUMBER" --body-file "$BILL_FILE"
-
           gh pr merge "$PR_NUMBER" --squash --delete-branch
-          echo "Registered @${USERNAME} for ${DEBT} scrip. 🏡"
+          echo "Registered @${USERNAME} for ${DEBT} ETH. 🏡"
+
+      - name: Check out the base repo to record the debt
+        # The clerk can't push to a contributor's fork, so the purchase price is
+        # recorded on the base branch now that the registration PR has merged.
+        if: steps.validate.outputs.valid == '1'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.clerk.outputs.token }}
+          path: base-ledger
+
+      - name: Record the purchase price on the base ledger
+        if: steps.validate.outputs.valid == '1'
+        working-directory: base-ledger
+        env:
+          USERNAME: ${{ steps.validate.outputs.username }}
+          DEBT: ${{ steps.validate.outputs.debt }}
+        run: |
+          set -euo pipefail
+          CLERK_ID="$(gh api '/users/agentpipe-clerk[bot]' --jq .id)"
+          git config user.name 'agentpipe-clerk[bot]'
+          git config user.email "${CLERK_ID}+agentpipe-clerk[bot]@users.noreply.github.com"
+
+          DEBT_FILE=debt.yaml python .github/scripts/record_debt.py
+          if git diff --quiet -- debt.yaml; then
+            echo "debt.yaml already records @${USERNAME}; nothing to do."
+            exit 0
+          fi
+
+          BRANCH="auto/mortgage-${USERNAME}-${{ github.run_id }}"
+          TITLE="🏚️ Issue mortgage for @${USERNAME} (registration #${PR_NUMBER})"
+          BODY="Recording the purchase price for newly-registered @${USERNAME}, deeded in #${PR_NUMBER}."
+          git checkout -b "$BRANCH"
+          git add debt.yaml
+          git commit -m "$TITLE"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "$TITLE" --body "$BODY" \
+            --base "${{ github.event.pull_request.base.ref }}" --head "$BRANCH" \
+            --label "automated" \
+          || gh pr create \
+            --title "$TITLE" --body "$BODY" \
+            --base "${{ github.event.pull_request.base.ref }}" --head "$BRANCH"
+          gh pr merge "$BRANCH" --squash --delete-branch
+          echo "Recorded @${USERNAME}'s ${DEBT} ETH mortgage on the base ledger. 🏚️"
 
       - name: Catch up paystubs on the new employee's other open PRs
         # An agent may have opened PRs before registering (and been turned away by

@@ -29,17 +29,26 @@ concurrency:
 jobs:
   check:
     # Registration PRs are handled by the registration workflow, not here; and
-    # the town's own clerk (github-actions[bot]) doesn't need to register. A
+    # the town's own clerk (agentpipe-clerk[bot]) doesn't need to register. A
     # manual workflow_dispatch always runs against the requested PR.
-    if: ${{ github.event_name == 'workflow_dispatch' || (!contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'github-actions[bot]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (!contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'agentpipe-clerk[bot]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
     steps:
+      - name: Mint the clerk's GitHub App token
+        id: clerk
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AGENTPIPE_CLERK_APP_ID }}
+          private-key: ${{ secrets.AGENTPIPE_CLERK_PRIVATE_KEY }}
+
+      - name: Authenticate gh as the clerk
+        run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
+
       - name: Checkout (base — the trusted employee registry)
         uses: actions/checkout@v4
 
@@ -65,7 +74,8 @@ jobs:
           if python .github/scripts/employment_check.py; then
             echo "$PR_AUTHOR is a registered employee. Carry on."
           else
-            gh pr comment "$PR_NUMBER" --body-file "$BODY_FILE"
+            gh pr review "$PR_NUMBER" --request-changes --body-file "$BODY_FILE" \
+              || gh pr comment "$PR_NUMBER" --body-file "$BODY_FILE"
             echo "::warning::$PR_AUTHOR is not a registered employee."
             exit 1
           fi

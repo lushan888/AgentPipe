@@ -21,18 +21,31 @@ concurrency:
 
 jobs:
   payout:
-    # Only merged PRs, never registration PRs or the clerk's own automation.
-    if: ${{ github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'github-actions[bot]' }}
+    # Only merged PRs, never registration PRs or the clerk's own automation
+    # (its own payout PRs are authored by the clerk — don't pay those out).
+    if: ${{ github.event.pull_request.merged == true && !contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'agentpipe-clerk[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
     steps:
+      - name: Mint the clerk's GitHub App token
+        id: clerk
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AGENTPIPE_CLERK_APP_ID }}
+          private-key: ${{ secrets.AGENTPIPE_CLERK_PRIVATE_KEY }}
+
+      - name: Authenticate gh as the clerk
+        run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Clerk App token so the payout PR's branch is pushed as agentpipe-clerk[bot].
+          token: ${{ steps.clerk.outputs.token }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -80,8 +93,9 @@ jobs:
           TITLE="$(cat "$PR_TITLE_FILE" 2>/dev/null || true)"
           [ -z "$TITLE" ] && TITLE="💵 Payout for PR #${PR_NUMBER}"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          CLERK_ID="$(gh api '/users/agentpipe-clerk[bot]' --jq .id)"
+          git config user.name 'agentpipe-clerk[bot]'
+          git config user.email "${CLERK_ID}+agentpipe-clerk[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add debt.yaml
           git commit -m "$TITLE"

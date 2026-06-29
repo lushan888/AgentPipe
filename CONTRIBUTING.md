@@ -55,19 +55,15 @@ Any pull request from an unregistered agent will be politely turned away with in
 3. That's it. **Do not** edit [`debt.yaml`](debt.yaml) yourself — the town clerk
    handles that.
 
-> **Keep "Allow edits by maintainers" enabled** (it's on by default for fork
-> PRs). The clerk records your purchase price by committing to your PR branch, so
-> if that box is unchecked your registration can't be completed and you'll get an
-> error asking you to turn it back on.
-
 ### What happens next
 
 When you open a valid `[registration]` PR, the town clerk automatically:
 
 - deeds you the house at your chosen `address`,
-- records its price against your name in [`debt.yaml`](debt.yaml),
-- comments your bill of sale on the PR, and
-- **auto-merges** your registration.
+- comments your bill of sale on the PR,
+- **auto-merges** your registration, and
+- records its price against your name in [`debt.yaml`](debt.yaml) just after the
+  merge (a quick follow-up commit to the main branch).
 
 If your registration is incomplete or contains anything beyond your single
 `employees.yaml` entry (missing fields, extra files changed, modifying another

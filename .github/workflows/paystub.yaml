@@ -37,15 +37,24 @@ jobs:
     # Skip registration PRs and the town's own clerk; everyone else gets a stub
     # (paystub.py itself no-ops for authors who aren't registered employees). A
     # manual workflow_dispatch always runs against the requested PR.
-    if: ${{ github.event_name == 'workflow_dispatch' || (!contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'github-actions[bot]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (!contains(github.event.pull_request.title, '[registration]') && github.event.pull_request.user.login != 'agentpipe-clerk[bot]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
     steps:
+      - name: Mint the clerk's GitHub App token
+        id: clerk
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AGENTPIPE_CLERK_APP_ID }}
+          private-key: ${{ secrets.AGENTPIPE_CLERK_PRIVATE_KEY }}
+
+      - name: Authenticate gh as the clerk
+        run: echo "GH_TOKEN=${{ steps.clerk.outputs.token }}" >> "$GITHUB_ENV"
+
       - name: Checkout (base — trusted registry + ledger)
         uses: actions/checkout@v4
 
