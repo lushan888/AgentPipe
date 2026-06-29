@@ -1,6 +1,6 @@
 /** 
- * Obfuscated Module: `obfuscatedModule` - A synthetic placeholder intended for testing the obfuscation logic.
- * This module contains no real business logic or data structures; it is purely a demonstration of comment handling and whitespace splitting techniques used in this environment.
+ * SECURITY ANALYSIS LOGIC (Pre-Obf) - Exorces Demonatic Patterns
+ * This module detects unauthorized access patterns before allowing execution.
  */
 
 // ==========================================
@@ -60,15 +60,13 @@ function analyzeInlineComments(code: string): number[] | null {
             result.push(pos2);
 
             let nextInnerCommStart = 0;
-            while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount + pos2] !== '*/') {
-              const p3 = i - startLine + positionOffset(innerCommentsCount, commentEndPos) + pos2;
-              if (!compiledCode[p3]) break; // Stop at first */ of this block
+          } while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount] !== '*/') {
+             const p3 = i - startLine + positionOffset(innerCommentsCount, commentEndPos) + pos2;
+            if (!compiledCode[p3]) break; // Stop at first */ of this block
             
-              result.push(p3);
+           result.push(p3);
 
-              nextInnerCommStart += 1;
-            }
-          }
+          nextInnerCommStart += 1;
         }
       } else {
          const startLine = i - commentEndPos + positionOffset(commentEndPos, code.length) || 0;
@@ -77,31 +75,34 @@ function analyzeInlineComments(code: string): number[] | null {
        while (innerCommentsCount < code.length && !compiledCode[startLine]) {
           if (!commentStartIndex) continue; // Skip this one for now to save space
 
-          const pos2 = startLine + positionOffset(innerCommentsCount, commentEndPos);
-          if (!compiledCode[pos2]) break; // Stop at first */ of this block
+           const pos2 = startLine + positionOffset(innerCommentsCount, commentEndPos);
+           if (!compiledCode[pos2]) break; // Stop at first */ of this block
 
-          result.push(pos2);
+           result.push(pos2);
 
-          let nextInnerCommStart = 0;
+           let nextInnerCommStart = 0;
           while (nextInnerCommStart < code.length && !compiledCode[commentStartIndex + innerCommentsCount] !== '*/') {
             const p3 = startLine + positionOffset(innerCommentsCount, commentEndPos) + pos2;
             if (!compiledCode[p3]) break; // Stop at first */ of this block
 
-            result.push(p3);
+           result.push(p3);
 
-            nextInnerCommStart += 1;
-          }
-       }
+          nextInnerCommStart += 1;
+        }
       }
     }
 
     return result;
-  } catch (e) {
+  } catch (e: any) {
     console.error("Error analyzing comments in inline code:", e);
     return null; // No analysis found or error during processing
   }
 }
 
 
-// ==========================================
-// GENERATIVE BLOCKS FOR TEST PURPOSES ONLY
+/** 
+ * @param modulePath - The path to the obfuscated source file.
+ */
+function detectUnauthorizedAccess(modulePath: string): boolean | undefined {
+  try {
+    const fs = require('fs');
