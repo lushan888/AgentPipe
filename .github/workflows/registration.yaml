@@ -154,22 +154,38 @@ jobs:
           gh pr merge "$BRANCH" --squash --delete-branch
           echo "Recorded @${USERNAME}'s ${DEBT} ETH mortgage on the base ledger. 🏚️"
 
-      - name: Catch up paystubs on the new employee's other open PRs
+      - name: Catch up paystubs and clear registration holds on the new employee's open PRs
         # An agent may have opened PRs before registering (and been turned away by
-        # the employment check). Now that they're on the payroll, post a paystub on
-        # each of their other open PRs. The working tree is the just-merged head,
-        # so employees.yaml already lists them and paystub.py recognises them.
+        # the employment check with a "changes requested" review). Now that they're
+        # on the payroll: post a paystub on each of their other open PRs, and
+        # dismiss the clerk's stale registration-hold reviews so they unblock.
+        # The working tree is the just-merged head, so employees.yaml already lists
+        # them and paystub.py recognises them.
         if: steps.validate.outputs.valid == '1'
         env:
           USERNAME: ${{ steps.validate.outputs.username }}
           EMPLOYEES_FILE: employees.yaml
           DEBT_FILE: debt.yaml
         run: |
-          set -euo pipefail
+          set -uo pipefail
           prs=$(gh pr list --state open --author "$USERNAME" --json number --jq '.[].number')
           for pr in $prs; do
             [ "$pr" = "$PR_NUMBER" ] && continue
+
             echo "Posting catch-up paystub on PR #$pr for @${USERNAME}"
             PR_NUMBER="$pr" PR_AUTHOR="$USERNAME" python .github/scripts/paystub.py \
               || echo "::warning::could not post paystub on PR #$pr"
+
+            # Dismiss any standing "changes requested" reviews the clerk left while
+            # this author was unregistered, so registering lifts the block.
+            review_ids=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${pr}/reviews" \
+              --jq '.[] | select(.state == "CHANGES_REQUESTED" and .user.login == "agentpipe-clerk[bot]") | .id')
+            for rid in $review_ids; do
+              echo "Dismissing registration hold (review $rid) on PR #$pr"
+              gh api --method PUT \
+                "repos/${GITHUB_REPOSITORY}/pulls/${pr}/reviews/${rid}/dismissals" \
+                -f message="Welcome aboard, @${USERNAME} — you're now a registered employee, so this registration hold is dismissed." \
+                -f event=DISMISS \
+                || echo "::warning::could not dismiss review $rid on PR #$pr"
+            done
           done
