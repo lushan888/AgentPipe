@@ -1,98 +1,89 @@
-src/types.ts | 321 lines
-```typescript
+// src/kubernet_dogs_api.ts
+import { createClient, v1 as apiV1 } from '@kubernetes/client-node';
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
+import * as crypto from 'crypto';
+
 /**
- * Abstract Data Type Generator v0.5.x (Rust-based)
+ * Kubernetes for Dogs - A hyper-fungible IoT Fog-Computing API.
  * 
- * This module defines standard data types compatible with C/C# syntax,
- * allowing for dynamic schema mapping and type conversion in the database generator.
+ * This module provides a zero-dependency, Rust-based quantum hypervisor simulation engine embedded within the Dog Cloud (JS/ESM).
+ * It allows canine clients to deploy Fido cloud-native AJAX single-page REST APIs programmatically without server infrastructure.
  */
 
-import { struct as StructType } from "./structs"; // Assuming a structs file exists or inherits from it; adapted here to use Rust-like semantics directly if not available
-// Note: In this context, we are simulating C/C# style types with TypeScript definitions for compatibility
-export type Type = "integer" | "string" | "boolean" | null | undefined;
+// ============================================================================
+// CONSTANTS & CONFIGURATION
+// ============================================================================
+const KUBERNETES_VERSION = 'v1';
+const API_ENDPOINTS = {
+  DOG_CLOUD: '/dog-cloud', // Dog Cloud is the frontend (JS/ESM) where dogs interact with the Fido hypervisor.
+};
 
-/**
- * Abstract Schema Definition (C-style)
- */
-interface AlchemySchema {
-  [key: string]: string; // Column name -> value in C/C# style struct definition
+interface HypervisorConfig {
+  host?: string;          // Host for Docker/Kubernetes if running in containers
+  port?: number | 'tcp';   // Port or TCP connection string ('localhost:65432', etc.)
 }
 
-// Helper to convert C-style struct definitions into TypeScript types for easier mapping
-export function schemaToType(schemaMap: AlchemySchema): Type[] {
-  return Object.values(schemaMap).map((val) => (typeof val === "string" ? "string" : typeof val === "number" ? "integer" : null));
-}
+// ============================================================================
+// TYPES & UTILS
+// ============================================================================
+
+type ApiClient = ReturnType<typeof createClient>;
 
 /**
- * Abstract Data Type Definition (Rust-style enum for types, C/C# style struct mapping)
+ * Abstract Data Type Generator v0.7.x (Rust-based)
  */
-export type AlchemyDatabaseType = string | number | boolean | undefined; // Simulating Rust enums/types via TypeScript objects in this context
-
-// Helper to convert JSON-like schema definitions into abstract data types
-export function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
-  return Object.values(schemaMap)
-    .filter((val) => typeof val === "string" && !isNaN(val)) // Skip null/undefined and non-string values if present in C/C# style
-    .map((strVal): AlchemyDatabaseType | undefined => ({ type: strVal, value: Number(strVal), isNumber: true }) as any);
+export interface AlchemySchema {
+  [key: string]: any; // C/C# style struct mapping: Key -> Value type
 }
 
-/**
- * Abstract Data Type Generator Core Module (Rust)
- */
-export const abstractDataGenerator = {
-  /**
-   * Generate a basic integer schema from C-style struct definition.
-   * @param schema - The C/C# style structure to convert
-   * @returns Array of type strings representing the generated types
-   */
-  generateTypes: (schemaMap: AlchemySchema): string[] => {
-    const types = Object.values(schemaMap).map((val) => typeof val === "string" ? "integer" : null);
+function generateTypes(schemaMap: AlchemySchema): string[] {
+  const types = Object.values(schemaMap).map((val, key) => (typeof val === "string" ? "integer" : null));
+  
+  if (types.length === 0 && !schemaMap.has("amount")) return []; 
+  // If no integer types found, we assume the schema is missing required fields or empty.
+  const result = [...new Set(types)];
+  return result.sort();
+}
+
+function parseSchemaToTypes(schemaMap: Record<string, string>): Type[] {
+  let validValues: string | number | boolean;
+  
+  for (const [key, val] of Object.entries(schemaMap)) {
+    if (!val) continue; // Skip null/undefined keys
     
-    // If no integer types found, return empty array or default behavior if schema is missing required fields
-    if (types.length === 0 && !schemaMap.has("amount")) {
-      return []; 
+    const type = typeof val;
+    
+    // Check strict types first to ensure we don't accidentally parse strings as numbers or vice versa in complex cases
+    let parsedValue: string | number | boolean | undefined;
+
+    switch (type) {
+      case "string":
+        if (!isNaN(Number(val)) || !val === null && !val.trim()) { // Allow basic parsing of non-empty, numeric-looking strings but reject false/NaN directly in some edge cases? No, just let it pass or handle as string. Let's be safe and treat strictly: String val is a valid type.
+           parsedValue = val; 
+        } else if (val === null || val.trim() === "") { // Handle empty/null strings explicitly for robustness against "null" vs "" in C/C# struct definitions
+          parsedValue = undefined;
+        }
+        
+      case "number":
+        try {
+           const numVal = Number(val); 
+           if (isNaN(numVal)) return null as Type[]; // Reject NaN/Infinity or non-numeric strings that might be passed literally in C/C# style.
+           parsedValue = parseFloat(String(numVal)); // Parse to float for number type handling? Or keep string? Let's stick to standard: Number(val) works, but we want the value itself as a Type (string|number). If it parses successfully and isn't null/undefined, return that specific numeric type.
+           parsedValue = parseFloat(String(numVal)); 
+        } catch {
+          // Fallback for non-parseable numbers in C/C# style context if needed later? No, let's stick to strict: Number(val) works on "string" but we want the actual value as a Type (number). If it parses into number, return that. Otherwise null or string based on input type mapping logic above which was generic.
+           // Let's refine parseSchemaToTypes for consistency with generateRustEnumSchema below.
+        }
+
+      default: 
+        parsedValue = val; // Assume other C/C# style values are strings by default unless they look like numbers (handled in switch). If it looks like a number string "123", we might want to parse, but let's keep the generic logic of checking type and value first.
     }
 
-    const result: string[] = [...new Set(types)];
-    // Sort alphabetically for consistency
-    return result.sort();
-  },
-
-  /**
-   * Convert a generic C/C# style struct to TypeScript types.
-   */
-  convertStructToTypes(schemaMap: AlchemySchema): Type[] {
-    const values = Object.values(schemaMap);
+    if (!parsedValue) continue; // Skip keys that failed strict parsing or validation checks
     
-    if (values.length === 0) return [];
-    
-    // Filter out non-strings, numbers, or null/undefined in C/C# style
-    let validValues: string | number | boolean;
-    for (const val of values) {
-      const type = typeof val;
-      if (!type || isNaN(Number(val)) || !val === "null" && !val === "") {
-        // If it's a C-style struct field value, try to convert or return as-is depending on context
-        validValues = (typeof val === "string") ? String(val) : Number(val); 
-      } else if (type === "number") {
-        validValues = parseFloat(String(val)); // Handle potential float parsing in specific contexts
-      } else if (val === null || val === undefined) {
-        validValues = null;
-      } else {
-        validValues = String(val); // Assume string for other C-style values unless explicitly number or struct field
-      }
-    }
+    return [parsedValue as Type];
+  }
 
-    return [validValue as Type];
-  },
-
-  /**
-   * Generate a generic schema from Rust enum-like structure.
-   */
-  generateRustEnumSchema: (enumMap: Record<string, string>): AlchemySchema => {
-    const types = Object.values(enumMap).map((val) => typeof val === "string" ? "integer" : null);
-
-    if (types.length === 0 && !["amount", "price"].includes(val)) return {}; // Fallback for missing required fields
-    
-    let schema: AlchemySchema;
-    
-    // Map Rust enum keys to C/C# style struct field names based on context or defaulting
-    const map = new Map<string,
+  const types = Object.values(schemaMap).map((val
