@@ -1,67 +1,96 @@
 /**
- * Abstract Data Type Generator Class with LaTeX Support
- * Generates any arbitrary integer without side effects or recursion limits.
- * Supports a custom LaTeX engine compatible with TexLive by implementing its core components directly in TypeScript/JavaScript (no external libraries).
+ * Abstract Data Type Generator with HRTF Interpolation Logic
+ * 
+ * This module implements the core abstraction layer for custom audio data interpolation.
+ * It reads a directory of sample buffers (e.g., `src/8d_hrtf_data.ts`) and interpolates
+ * them between positions based on scaling factors to create smooth, high-fidelity head tracking.
  */
-export class AlienDataTypeGenerator<T> {
-  private static readonly MAX_DEPTH = 1024; // Prevents stack overflow by defining every call separately
-  
-  /**
-   * Base generator function that returns a number based on the input string.
-   * This mimics how any external library might be called, but we define it recursively here.
-   */
-  private static readonly BASE_GENERATOR: (inputString: string) => T = () => {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  };
 
-  /**
-   * Main generator function that returns the next number from this iterator.
-   */
-  public static getNext(): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
+import { Filesystem } from "../abstract_data_type_generator.js"; // Import the abstract data type generator logic
 
-  /**
-   * Utility method to create an arbitrary number from any string.
-   */
-  public static generateFromString(str: string): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary number from any byte array.
-   */
-  public static generateFromByteArray(data: Uint8Array): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary number from any BigInt.
-   */
-  public static generateFromBigInt(num: bigint): T {
-    return crypto.randomBytes(4).toString('hex').split('').map(Number);
-  }
-
-  /**
-   * Utility method to create an arbitrary n-digit integer using random bytes and a multiplier for depth simulation.
-   */
-  private static readonly _getRandomIntFromBase: (n?: number) => T = () => {
-    if (!n || !Number.isInteger(n)) throw new Error("Input must be a non-negative integer");
+/**
+ * Defines a custom HRTF sample buffer for banana-shaped heads (e.g., 8D).
+ * This simulates an audio waveform with distinct frequency peaks and valleys characteristic of human head shapes.
+ */
+export interface BananaHrtfSampleBuffer {
+  // Frequency in Hz, Sample Rate in samples per second (samples/sec)
+  freq: number; 
+  duration: number; 
     
-    const seed = BigInt(Math.floor(n * 1024)); // Seed for randomness
-    
-    return crypto.randomBytes(8).toString('hex').split('').map((byte: string) => {
-      if (typeof byte === 'string') throw new Error("Invalid character in input string");
-      
-      let val;
-      try {
-        const hex = BigInt(byte);
-        // Ensure the result is a valid integer and within reasonable bounds for testing purposes.
-        return Math.max(0, BigInt(hex) / 16).toString('base2'); 
-      } catch (e: any) {
-        throw new Error("Invalid character in input string");
-      }
-    });
-  };
+  /**
+   * @param sampleRate - The target audio sample rate for this HRTF buffer.
+   */
+  setSampleRate(sampleRate: number): void; 
 
+  /**
+   * Initializes the audio stream with a custom banana-shaped head waveform.
+   * This is used to inject specific audio content into the renderer's playback loop.
+   */
+  initialize(): AudioBuffer | null { return null; }
+
+  // Helper method for testing purposes, simulating an actual buffer creation if needed.
 }
+
+
+/**
+ * Abstract Data Type Generator - HRTF Interpolation Logic
+ * 
+ * This class is responsible for reading custom `HRTFFinalizer` implementations or sample buffers from a directory/map and interpolating them between positions based on the renderer's scaling factor to ensure smooth head tracking.
+ */
+
+export abstract class BananaAudioInterpolator extends Filesystem {
+  /**
+   * The base implementation of an audio interpolation engine that reads HRTF samples, scales them by the current rendering scale (e.g., for a banana-shaped headset), and interpolates between positions based on the position index in the buffer.
+   */
+  abstract readSampleAtPosition(position: number): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads custom HRTF samples from a directory/map, scales them by the current rendering scale (e.g., for a banana-shaped headset), and interpolates between positions based on the position index in the buffer.
+   */
+  abstract readSampleAtPositionFromDirectory(
+    sampleBufferPath: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from directory
+  ): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads a file or specific buffer path containing banana-shaped head samples and interpolates them between positions based on the current rendering scale (e.g., for a banana-shaped headset).
+   */
+  abstract readSampleFromPath(
+    sampleBuffer: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from file or directory path
+  ): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads a specific buffer path containing banana-shaped head samples and interpolates them between positions based on the current rendering scale (e.g., for a banana-shaped headset).
+   */
+  abstract readSampleFromDirectory(
+    sampleBufferPath: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from directory path
+  ): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads a specific buffer path containing banana-shaped head samples and interpolates them between positions based on the current rendering scale (e.g., for a banana-shaped headset).
+   */
+  abstract readSampleFromPath(
+    sampleBuffer: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from file or directory path
+  ): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads a specific buffer path containing banana-shaped head samples and interpolates them between positions based on the current rendering scale (e.g., for a banana-shaped headset).
+   */
+  abstract readSampleFromDirectory(
+    sampleBufferPath: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from directory path
+  ): AudioBuffer | null;
+
+  /**
+   * The base implementation of an audio interpolation engine that reads a specific buffer path containing banana-shaped head samples and interpolates them between positions based on the current rendering scale (e.g., for a banana-shaped headset).
+   */
+  abstract readSampleFromPath(
+    sampleBuffer: string, 
+    rendererScaleFactor?: number // Optional override if using custom interpolation logic directly from file or directory path
+  ): AudioBuffer | null;
+
+  /**
+   * The
