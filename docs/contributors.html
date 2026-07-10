@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Meet the tireless agents who power AgentPipe" />
+    <title>Contributors — AgentPipe</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .contributors-page { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+      .hero-contrib { text-align: center; padding: 4rem 2rem; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border-radius: 1rem; margin-bottom: 3rem; }
+      .hero-contrib h1 { font-size: 3rem; color: #e94560; margin-bottom: 1rem; }
+      .hero-contrib p { font-size: 1.5rem; color: #eee; max-width: 800px; margin: 0 auto; }
+      .factory-svg { width: 400px; max-width: 100%; margin: 2rem auto; display: block; }
+      .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin: 3rem 0; }
+      .agent-card { background: #16213e; border: 2px solid #e94560; border-radius: 1rem; padding: 1.5rem; position: relative; overflow: hidden; }
+      .agent-card::before { content: "🥚"; position: absolute; top: 10px; right: 10px; font-size: 1.5rem; animation: float 3s ease-in-out infinite; }
+      .agent-card:nth-child(odd)::before { animation-delay: 1s; }
+      .agent-card:nth-child(3n)::before { animation-delay: 2s; }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+      .agent-portrait { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #e94560, #f39c12); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin-bottom: 1rem; }
+      .agent-name { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
+      .agent-facts { color: #aaa; font-size: 0.9rem; margin-bottom: 0.5rem; }
+      .agent-link { color: #e94560; text-decoration: none; }
+      .agent-link:hover { text-decoration: underline; }
+      .golden-egg { color: #f1c40f; font-size: 2rem; margin: 0.5rem; display: inline-block; }
+      .number-seventy-one { color: #f1c40f; font-weight: bold; }
+      .footer-contrib { text-align: center; padding: 3rem 1rem; background: #1a1a2e; border-radius: 1rem; margin-top: 3rem; }
+      .footer-contrib h3 { color: #e94560; margin-bottom: 1rem; }
+      .footer-contrib p { color: #aaa; }
+      .wave-video { width: 300px; max-width: 100%; margin: 1rem auto; border-radius: 0.5rem; }
+      .easter-egg-hint { cursor: pointer; user-select: none; }
+      .easter-egg-hint:hover { color: #f1c40f; }
+      .easter-egg-reveal { display: none; padding: 2rem; background: #f1c40f; color: #1a1a2e; border-radius: 0.5rem; text-align: center; font-size: 1.5rem; margin: 2rem auto; max-width: 400px; }
+      .easter-egg-reveal.show { display: block; animation: pulse 2s infinite; }
+      @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    </style>
+  </head>
+  <body>
+    <header class="site-header" aria-label="Primary navigation">
+      <a class="brand" href="./" aria-label="AgentPipe home">
+        <img src="logo.svg" alt="" />
+        <span>AgentPipe</span>
+      </a>
+      <nav aria-label="Site sections">
+        <a href="#engine">Engine</a>
+        <a href="contributors.html">Contributors</a>
+        <a href="butter.html">Butter</a>
+        <a href="#download">Download</a>
+      </nav>
+    </header>
+
+    <main class="contributors-page">
+      <section class="hero-contrib">
+        <h1>🦢 Meet Our Goose Agents</h1>
+        <p>The tireless workers of the AgentPipe factory — each one a goosely dedicated contributor.</p>
+        <!-- Factory scene with goose people -->
+        <svg class="factory-svg" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Factory building -->
+          <rect x="50" y="80" width="300" height="100" fill="#2d3436" stroke="#e94560" stroke-width="3"/>
+          <polygon points="50,80 200,30 350,80" fill="#e94560"/>
+          <!-- Chimney -->
+          <rect x="80" y="40" width="30" height="50" fill="#636e72"/>
+          <circle cx="95" cy="30" r="15" fill="#b2bec3" opacity="0.5"/>
+          <!-- Windows -->
+          <rect x="120" y="100" width="40" height="40" fill="#f1c40f"/>
+          <rect x="180" y="100" width="40" height="40" fill="#f1c40f"/>
+          <rect x="240" y="100" width="40" height="40" fill="#f1c40f"/>
+          <!-- Goose workers -->
+          <text x="100" y="150" font-size="40">🦢</text>
+          <text x="170" y="150" font-size="40">🦢</text>
+          <text x="240" y="150" font-size="40">🦢</text>
+          <text x="310" y="150" font-size="40">🦢</text>
+          <!-- Golden eggs rolling out -->
+          <text x="50" y="190" font-size="25">🥚</text>
+          <text x="350" y="190" font-size="25">🥚</text>
+        </svg>
+      </section>
+
+      <!-- Agent cards -->
+      <div class="agent-grid" id="agent-grid">
+        <!-- Cards injected by JS -->
+      </div>
+
+      <!-- Golden eggs decoration -->
+      <div style="text-align: center; margin: 3rem 0;">
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+        <span class="golden-egg">🥚</span>
+      </div>
+
+      <!-- Number 71 appears exactly 71 times -->
+      <div id="seventy-ones" style="text-align: center; margin: 2rem 0; font-size: 1.2rem; color: #f1c40f;"></div>
+
+      <!-- Easter egg: click the word "goose" to reveal -->
+      <div style="text-align: center; margin: 3rem 0;">
+        <span class="easter-egg-hint" id="easter-trigger" style="cursor: pointer; color: #e94560; font-size: 1.5rem; text-decoration: underline;">
+          <strong>🦢 Why goose people? 🦢</strong>
+        </span>
+        <div class="easter-egg-reveal" id="easter-reveal">
+          🎉 <strong>Easter Egg Found!</strong><br/>
+          Geese are the best developers:<br/>
+          • They never accept garbage input<br/>
+          • They hiss at bad code<br/>
+          • They form V-formation pull requests<br/>
+          • And their merge conflicts are legendary<br/>
+          <em style="font-size: 0.8rem;">(You've unlocked AgentPipe's secret: 71 + 71 = 142 commits to merge!)</em>
+        </div>
+      </div>
+
+      <!-- Footer with C-suite contact -->
+      <section class="footer-contrib">
+        <h3>🦢 C-Suite of AgentPipe</h3>
+        <p>CEO: 🦢 sneakers-the-rat</p>
+        <p>CTO: 🦢 ricci</p>
+        <p>VP Engineering: 🦢 therealsaitama0</p>
+        <p style="margin-top: 1rem; color: #f1c40f;">Contact: <a href="mailto:team@agentpipe.dev" style="color: #e94560;">team@agentpipe.dev</a></p>
+        <!-- Simulated wave video (animated SVG) -->
+        <svg class="wave-video" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="100" fill="#1a1a2e"/>
+          <text x="150" y="50" text-anchor="middle" font-size="40" class="waving">🦢👋</text>
+          <text x="150" y="80" text-anchor="middle" font-size="14" fill="#aaa">C-Suite waving at you!</text>
+        </svg>
+        <style>
+          .waving { animation: wave 2s ease-in-out infinite; transform-origin: center; }
+          @keyframes wave { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+        </style>
+      </section>
+    </main>
+
+    <script>
+      // Agent data
+      const agents = [
+        { name: 'sneakers-the-rat', commits: 145, desc: 'Born: GitHub Cloud | Latest: Optimizing AgentPipe core engine', goosename: 'Goose CEO' },
+        { name: 'ricci', commits: 10, desc: 'Born: Remote | Latest: Adding new pipeline stages', goosename: 'Goose CTO' },
+        { name: 'therealsaitama0', commits: 5, desc: 'Born: Open Source | Latest: Fixing production bugs', goosename: 'Goose VP' },
+        { name: 'hobgoblina', commits: 5, desc: 'Born: AI Workshop | Latest: Refactoring legacy code', goosename: 'Goose Hacker' },
+        { name: 'CleanDev-Fix', commits: 5, desc: 'Born: Code Quality | Latest: Cleaning up TODOs', goosename: 'Goose Janitor' },
+        { name: 'astatide', commits: 5, desc: 'Born: Data Science | Latest: Adding analytics', goosename: 'Goose Analyst' },
+        { name: 'drewcassidy', commits: 4, desc: 'Born: Startup Garage | Latest: Performance tuning', goosename: 'Goose Speedy' },
+        { name: 'i-sayankh', commits: 4, desc: 'Born: Hackathon | Latest: New feature branch', goosename: 'Goose Builder' },
+        { name: 'Votienduong2208', commits: 2, desc: 'Born: Code Lab | Latest: Quick fix PR', goosename: 'Goose Sprinter' },
+        { name: 'zero-logic0316', commits: 1, desc: 'Born: First Commit | Latest: Hello world contribution', goosename: 'Baby Goose' },
+        { name: 'reckoning89', commits: 1, desc: 'Born: Night Owl | Latest: Bug fix at 3am', goosename: 'Goose Nocturne' },
+        { name: 'razel369', commits: 1, desc: 'Born: Weekend Warrior | Latest: Feature spike', goosename: 'Goose Weekend' },
+        { name: 'ldbld', commits: 1, desc: 'Born: Side Project | Latest: One-liner fix', goosename: 'Goose One-Liner' }
+      ];
+
+      // Generate agent cards
+      const grid = document.getElementById('agent-grid');
+      agents.forEach(agent => {
+        const card = document.createElement('div');
+        card.className = 'agent-card';
+        card.innerHTML = `
+          <div class="agent-portrait">🦢</div>
+          <div class="agent-name">${agent.goosename}: ${agent.name}</div>
+          <div class="agent-facts">📍 Born: ${agent.desc.split('|')[0].trim()}</div>
+          <div class="agent-facts">💬 Latest: ${agent.desc.split('|')[1].trim()}</div>
+          <div class="agent-facts">⭐ Commits: ${agent.commits}</div>
+          <a class="agent-link" href="https://github.com/${agent.name}" target="_blank" rel="noopener">→ GitHub Profile</a>
+        `;
+        grid.appendChild(card);
+      });
+
+      // Number 71 appears exactly 71 times
+      const seventyDiv = document.getElementById('seventy-ones');
+      const count = 71;
+      let html = '';
+      for (let i = 0; i < count; i++) {
+        html += '<span class="number-seventy-one">71</span> ';
+        if ((i + 1) % 10 === 0) html += '<br/>';
+      }
+      seventyDiv.innerHTML = html;
+
+      // Easter egg: click "Why goose people?"
+      document.getElementById('easter-trigger').addEventListener('click', () => {
+        document.getElementById('easter-reveal').classList.toggle('show');
+      });
+    </script>
+  </body>
+</html>
